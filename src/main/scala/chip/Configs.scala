@@ -88,6 +88,12 @@ class DualCoreConfig extends Config(
 class HeterogeneousDualCoreConfig extends Config(
   new WithNSmallCores(1) ++ new WithNBigCores(1) ++ new BaseConfig)
 
+class QuadCoreConfig extends Config(
+  new WithNBigCores(4) ++ new BaseConfig)
+
+class HexaCoreConfig extends Config(
+  new WithNBigCores(6) ++ new BaseConfig)
+
 class TinyConfig extends Config(
   new WithNMemoryChannels(0) ++
   new WithStatelessBridge ++
