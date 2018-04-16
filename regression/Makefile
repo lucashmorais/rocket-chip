@@ -248,7 +248,7 @@ stamps/riscv-tests.stamp:
 	git -C $(abspath $(TOP))/riscv-tools submodule update --init --recursive riscv-tests
 	date > $@
 
-stamps/%/vsim-jtag-dtm-32-$(JTAG_DTM_TEST).stamp: stamps/%/vsim$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
+stamps/%/vsim-jtag-dtm-32-test.stamp: stamps/%/vsim$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
 	RISCV=$(RISCV) $(GDBSERVER) \
 	--sim_cmd="$(abspath $(TOP))/vsim/simv-$(PROJECT)-$*$(JTAG_DEBUG_SUFFIX) $(JTAG_DTM_SIM_ARGS) $(VSIM_JTAG_VCDPLUS_32)" \
 	--server_cmd="$(RISCV)/bin/openocd $(OPENOCD_DEBUG) \
@@ -258,7 +258,7 @@ stamps/%/vsim-jtag-dtm-32-$(JTAG_DTM_TEST).stamp: stamps/%/vsim$(JTAG_STAMP_SUFF
 	$(JTAG_DTM_TEST)
 	date > $@
 
-stamps/%/vsim-jtag-dtm-64-$(JTAG_DTM_TEST).stamp: stamps/%/vsim$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
+stamps/%/vsim-jtag-dtm-64-test.stamp: stamps/%/vsim$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
 	RISCV=$(RISCV) $(GDBSERVER) \
 	--sim_cmd="$(abspath $(TOP))/vsim/simv-$(PROJECT)-$*$(JTAG_DEBUG_SUFFIX) $(JTAG_DTM_SIM_ARGS) $(VSIM_JTAG_VCDPLUS_64)" \
 	--server_cmd="$(RISCV)/bin/openocd $(OPENOCD_DEBUG) \
@@ -268,7 +268,7 @@ stamps/%/vsim-jtag-dtm-64-$(JTAG_DTM_TEST).stamp: stamps/%/vsim$(JTAG_STAMP_SUFF
 	$(JTAG_DTM_TEST)
 	date > $@
 
-stamps/%/emulator-jtag-dtm-32-$(JTAG_DTM_TEST).stamp:  stamps/%/emulator$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
+stamps/%/emulator-jtag-dtm-32-test.stamp:  stamps/%/emulator$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
 	RISCV=$(RISCV) $(GDBSERVER) \
 	--sim_cmd="$(abspath $(TOP))/emulator/emulator-$(PROJECT)-$*$(JTAG_DEBUG_SUFFIX) $(JTAG_DTM_SIM_ARGS) $(EMULATOR_JTAG_VCDPLUS_32) dummybin" \
 	--server_cmd="$(RISCV)/bin/openocd $(OPENOCD_DEBUG) \
@@ -278,7 +278,7 @@ stamps/%/emulator-jtag-dtm-32-$(JTAG_DTM_TEST).stamp:  stamps/%/emulator$(JTAG_S
 	$(JTAG_DTM_TEST)
 	date > $@
 
-stamps/%/emulator-jtag-dtm-64-$(JTAG_DTM_TEST).stamp:  stamps/%/emulator$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
+stamps/%/emulator-jtag-dtm-64-test.stamp:  stamps/%/emulator$(JTAG_STAMP_SUFFIX).stamp stamps/riscv-tests.stamp
 	RISCV=$(RISCV) $(GDBSERVER) \
 	--sim_cmd="$(abspath $(TOP))/emulator/emulator-$(PROJECT)-$*$(JTAG_DEBUG_SUFFIX) $(JTAG_DTM_SIM_ARGS) $(EMULATOR_JTAG_VCDPLUS_64) dummybin" \
 	--server_cmd="$(RISCV)/bin/openocd $(OPENOCD_DEBUG) \
@@ -288,11 +288,11 @@ stamps/%/emulator-jtag-dtm-64-$(JTAG_DTM_TEST).stamp:  stamps/%/emulator$(JTAG_S
 	$(JTAG_DTM_TEST)
 	date > $@
 
-VSIM_JTAG_DTM_32_TEST_STAMPS=$(foreach config,$(CONFIGS_32),stamps/$(config)/vsim-jtag-dtm-32-$(JTAG_DTM_TEST).stamp)
-VSIM_JTAG_DTM_64_TEST_STAMPS=$(foreach config,$(CONFIGS_64),stamps/$(config)/vsim-jtag-dtm-64-$(JTAG_DTM_TEST).stamp)
+VSIM_JTAG_DTM_32_TEST_STAMPS=$(foreach config,$(CONFIGS_32),stamps/$(config)/vsim-jtag-dtm-32-test.stamp)
+VSIM_JTAG_DTM_64_TEST_STAMPS=$(foreach config,$(CONFIGS_64),stamps/$(config)/vsim-jtag-dtm-64-test.stamp)
 
-EMULATOR_JTAG_DTM_32_TEST_STAMPS=$(foreach config,$(CONFIGS_32),stamps/$(config)/emulator-jtag-dtm-32-$(JTAG_DTM_TEST).stamp)
-EMULATOR_JTAG_DTM_64_TEST_STAMPS=$(foreach config,$(CONFIGS_64),stamps/$(config)/emulator-jtag-dtm-64-$(JTAG_DTM_TEST).stamp)
+EMULATOR_JTAG_DTM_32_TEST_STAMPS=$(foreach config,$(CONFIGS_32),stamps/$(config)/emulator-jtag-dtm-32-test.stamp)
+EMULATOR_JTAG_DTM_64_TEST_STAMPS=$(foreach config,$(CONFIGS_64),stamps/$(config)/emulator-jtag-dtm-64-test.stamp)
 
 vsim-jtag-dtm-tests-32 : $(VSIM_JTAG_DTM_32_TEST_STAMPS)
 vsim-jtag-dtm-tests-64 : $(VSIM_JTAG_DTM_64_TEST_STAMPS)
