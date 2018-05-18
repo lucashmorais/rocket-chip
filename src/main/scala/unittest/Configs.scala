@@ -10,27 +10,58 @@ import freechips.rocketchip.chip.{BaseConfig, BasePlatformConfig}
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.tilelink._
+import freechips.rocketchip.integrators.PicosManagerTest
 
 case object TestDurationMultiplier extends Field[Int]
 
+// This Config class is useful for controlling the duration of tests.
+// Several of the following Config classes depend on it.
 class WithTestDuration(x: Int) extends Config((site, here, up) => {
   case TestDurationMultiplier => x
 })
 
+// Config-extending class that leverages Config's ability to generate
+// object from (View, View, View) => PartialFunction[Any, Any] lambda.
 class WithAMBAUnitTests extends Config((site, here, up) => {
-  case UnitTests => (q: Parameters) => {
-    implicit val p = q
-    val txns = 100 * site(TestDurationMultiplier)
-    val timeout = 50000 * site(TestDurationMultiplier)
-    Seq(
-      Module(new AHBBridgeTest(true, txns=8*txns, timeout=timeout)),
-      Module(new AHBNativeTest(true, txns=6*txns, timeout=timeout)),
-      Module(new AHBNativeTest(false,txns=6*txns, timeout=timeout)),
-      Module(new APBBridgeTest(true, txns=6*txns, timeout=timeout)),
-      Module(new APBBridgeTest(false,txns=6*txns, timeout=timeout)),
-      Module(new AXI4LiteFuzzRAMTest(txns=6*txns, timeout=timeout)),
-      Module(new AXI4FullFuzzRAMTest(txns=3*txns, timeout=timeout)),
-      Module(new AXI4BridgeTest(     txns=3*txns, timeout=timeout))) }
+
+  // The way how UnitTests should be run are specified below a UnitTests
+  // case.
+  case UnitTests =>
+
+    // As one can see, the return value of the UnitTests case must be a
+    // Parameters => Seq[Module] closure.
+    (q: Parameters) => {
+      implicit val p = q
+      val txns = 100 * site(TestDurationMultiplier)
+      val timeout = 50000 * site(TestDurationMultiplier)
+      Seq(
+        Module(new AHBBridgeTest(true, txns=8*txns, timeout=timeout)),
+        Module(new AHBNativeTest(true, txns=6*txns, timeout=timeout)),
+        Module(new AHBNativeTest(false,txns=6*txns, timeout=timeout)),
+        Module(new APBBridgeTest(true, txns=6*txns, timeout=timeout)),
+        Module(new APBBridgeTest(false,txns=6*txns, timeout=timeout)),
+        Module(new AXI4LiteFuzzRAMTest(txns=6*txns, timeout=timeout)),
+        Module(new AXI4FullFuzzRAMTest(txns=3*txns, timeout=timeout)),
+        Module(new AXI4BridgeTest(     txns=3*txns, timeout=timeout)))
+    }
+})
+
+// Config-extending class that leverages Config's ability to generate
+// object from (View, View, View) => PartialFunction[Any, Any] lambda.
+class WithPicosManagerTest extends Config((site, here, up) => {
+
+  // The way how UnitTests should be run are specified below a UnitTests
+  // case.
+  case UnitTests =>
+
+    // As one can see, the return value of the UnitTests case must be a
+    // Parameters => Seq[Module] closure.
+    (q: Parameters) => {
+      implicit val p = q
+      val txns = site(TestDurationMultiplier)
+      val timeout = 10 * site(TestDurationMultiplier)
+      Seq(Module(new PicosManagerTest(txns=8*txns, timeout=timeout)))
+    }
 })
 
 class WithTLSimpleUnitTests extends Config((site, here, up) => {
@@ -81,3 +112,4 @@ class AMBAUnitTestConfig extends Config(new WithAMBAUnitTests ++ new WithTestDur
 class TLSimpleUnitTestConfig extends Config(new WithTLSimpleUnitTests ++ new WithTestDuration(10) ++ new BasePlatformConfig)
 class TLWidthUnitTestConfig extends Config(new WithTLWidthUnitTests ++ new WithTestDuration(10) ++ new BasePlatformConfig)
 class TLXbarUnitTestConfig extends Config(new WithTLXbarUnitTests ++ new WithTestDuration(10) ++ new BasePlatformConfig)
+class PicosManagerUnitTestConfig extends Config(new WithPicosManagerTest ++ new WithTestDuration(1) ++ new BasePlatformConfig)
