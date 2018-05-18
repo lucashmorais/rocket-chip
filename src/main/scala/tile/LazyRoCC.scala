@@ -21,6 +21,10 @@ case class RoCCParams(
   nPTWPorts : Int = 0,
   useFPU: Boolean = false)
 
+// Contains the RoCC instruction as a 32 bit word
+// rs1, rs2 and rd refer to the register numbers
+// included in the instruction word, NOT to the data
+// that the corresponding registers carry.
 class RoCCInstruction extends Bundle
 {
   val funct = Bits(width = 7)
@@ -33,6 +37,9 @@ class RoCCInstruction extends Bundle
   val opcode = Bits(width = 7)
 }
 
+// One can access the 'rs1' and 'rs2' fields of this class
+// to obtain the data in the registers passed to the RoCC
+// instruction.
 class RoCCCommand(implicit p: Parameters) extends CoreBundle()(p) {
   val inst = new RoCCInstruction
   val rs1 = Bits(width = xLen)
@@ -40,12 +47,24 @@ class RoCCCommand(implicit p: Parameters) extends CoreBundle()(p) {
   val status = new MStatus
 }
 
+// RoCC accelerators may write result data back to registers.
+// The 'data' field of this class should receive the data to
+// be written to the register indexed by 'rd'.
 class RoCCResponse(implicit p: Parameters) extends CoreBundle()(p) {
   val rd = Bits(width = 5)
   val data = Bits(width = xLen)
 }
 
+// Class that defines the major IO capabilities of RoCC acc'rs
+// cmd: RoCCComand field related to the request
+// resp: RoCCResponse for sending data back to the register file
+// mem: HellaCacheIO field for accessing main memory
+// busy: Bool(OUTPUT) that tells the core that the accelerator is busy and thus
+// not ready to receive more requests
+// interrupt: Bool(OUTPUT) that makes the accelerator generate interrupts
+// exception: Bool(INPUT) that makes the accelerator generate interrupts
 class RoCCCoreIO(implicit p: Parameters) extends CoreBundle()(p) {
+  // The flip method makes cmd be a MALE signal, it seems
   val cmd = Decoupled(new RoCCCommand).flip
   val resp = Decoupled(new RoCCResponse)
   val mem = new HellaCacheIO
@@ -109,21 +128,45 @@ trait HasLazyRoCCModule extends CanHaveSharedFPUModule
   val roccOpcodes = buildRocc.map(_.opcodes)
 
   if(usingRocc) {
+
+    // Instantiate a round-robing arbiter for receiving
+    // the output values from RoCC accelerators
     val respArb = Module(new RRArbiter(new RoCCResponse()(outer.p), nRocc))
+
+    // This makes the core holding the RoCC accelerators
+    // receive the response from the RRArbiter
     roccCore.resp <> respArb.io.out
+
     val cmdRouter = Module(new RoccCommandRouter(roccOpcodes)(outer.p))
+    // This lets commands coming from the core holding the RoCC accelerator
+    // go to the RoCCCommandRouter
     cmdRouter.io.in <> roccCore.cmd
 
     outer.roccs.zipWithIndex.foreach { case (rocc, i) =>
       ptwPorts ++= rocc.module.io.ptw
+
+      // This connects the RoCCCommandRouter to each
+      // of the available RoCC modules
       rocc.module.io.cmd <> cmdRouter.io.out(i)
+
+      // This lets the RoCC modules receive exception
+      // signals from the core
       rocc.module.io.exception := roccCore.exception
+
+      // This lets RoCC modules access memory and cache
       val dcIF = Module(new SimpleHellaCacheIF()(outer.p))
       dcIF.io.requestor <> rocc.module.io.mem
       dcachePorts += dcIF.io.cache
+
+      // This lets the current RoCC accelerator
+      // connect to the arbiter at input port #i
       respArb.io.in(i) <> Queue(rocc.module.io.resp)
     }
+
+    // If the RoCCCommandRouter or any of the modules are busy, then the RoCC core is busy
     roccCore.busy := cmdRouter.io.busy || outer.roccs.map(_.module.io.busy).reduce(_ || _)
+
+    // If any of the RoCC modules generate an interrupt, the RoCC core gets an interrupt
     roccCore.interrupt := outer.roccs.map(_.module.io.interrupt).reduce(_ || _)
 
     fpuOpt foreach { fpu =>
@@ -213,6 +256,60 @@ class AccumulatorExampleModule(outer: AccumulatorExample, n: Int = 4)(implicit p
   io.mem.req.bits.data := Bits(0) // we're not performing any stores...
   io.mem.req.bits.phys := Bool(false)
   io.mem.invalidate_lr := Bool(false)
+}
+
+class uselessAcc(implicit p: Parameters) extends LazyRoCC {
+  override lazy val module = new uselessAccModule(this)
+}
+
+class uselessAccModule(outer: uselessAcc, n: Int = 4)(implicit p: Parameters) extends LazyRoCCModule(outer)
+  with HasCoreParameters {
+
+    // This register captures the index of the target
+    // result register
+    val req_rd = Reg(io.resp.bits.rd)
+
+    val s_idle :: s_resp :: Nil = Enum(Bits(), 2)
+    val state = Reg(init = s_idle)
+
+    // Do not generate interrupts
+    io.interrupt := Bool(false)
+
+    // Let the registers reset to 0
+    val x = Reg(UInt(width = xLen), init = UInt(0))
+    val y = Reg(UInt(width = xLen), init = UInt(0))
+
+    // The module is always ready to receive data
+    io.cmd.ready  := (state === s_idle)
+    
+    // Tautology that says that we are 
+    // busy whenever we are not idle
+    io.busy       := (state =/= s_idle)
+
+    // Get input when the command is fired
+    when (io.cmd.fire()) {
+      req_rd            := io.cmd.bits.inst.rd
+      x                 := io.cmd.bits.rs1
+      y                 := io.cmd.bits.rs2
+      state             := s_resp
+    }
+
+    // When the response gets sent, move
+    // back to idle state
+    when (io.resp.fire()) { state := s_idle }
+
+    // The response is valid whenever we have reached
+    // the response state
+    io.resp.valid     := (state === s_resp)
+
+    // Select the register to send the response to
+    io.resp.bits.rd   := req_rd
+
+    // Write data to the response register
+    io.resp.bits.data := (x + y + UInt(2)) * UInt(7)
+
+    // We never issue memory requests
+    io.mem.req.valid  := Bool(false)
 }
 
 class  TranslatorExample(implicit p: Parameters) extends LazyRoCC {
@@ -374,8 +471,13 @@ object OpcodeSet {
 class RoccCommandRouter(opcodes: Seq[OpcodeSet])(implicit p: Parameters)
     extends CoreModule()(p) {
   val io = new Bundle {
+    // Commands coming in for the RoCC accelerators
     val in = Decoupled(new RoCCCommand).flip
+
+    // Commands coming out for the RoCC accelerators matching the custom opcode
     val out = Vec(opcodes.size, Decoupled(new RoCCCommand))
+
+
     val busy = Bool(OUTPUT)
   }
 
