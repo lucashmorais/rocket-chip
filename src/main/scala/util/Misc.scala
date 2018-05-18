@@ -25,6 +25,9 @@ object DecoupledHelper {
   def apply(rvs: Bool*) = new DecoupledHelper(rvs)
 }
 
+// Class for getting an AND reduction of a sequence
+// of Bools excluding some of its elements and adding
+// a sequence of additional ones.
 class DecoupledHelper(val rvs: Seq[Bool]) {
   def fire(exclude: Bool, includes: Bool*) = {
     (rvs.filter(_ ne exclude) ++ includes).reduce(_ && _)

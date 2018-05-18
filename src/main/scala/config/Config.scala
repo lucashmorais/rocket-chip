@@ -20,13 +20,22 @@ abstract class Parameters extends View {
   protected[config] def find(pname: Any, site: View) = chain(site, new TerminalView, pname)
 }
 
+// Companion object of the Parameters class
 object Parameters {
+  // This generates an empty set of Parameters
   def empty:                                                    Parameters = new EmptyParameters
+
+  // This creates a PartialParameters object from the 'f' lambda function returning a PartialFunction[Any, Any]
   def apply(f: (View, View, View) => PartialFunction[Any,Any]): Parameters = new PartialParameters(f)
+
+  // Loopback function which returns its single parameter
   def root(p: Parameters) = p
 }
 
 class Config(p: Parameters) extends Parameters {
+  // The following 'this' function is the implementation of a constructor that receives a partial
+  // function, creates a PartialParameters object with it and then builds a Config object by calling
+  // the Config constructor that takes a single Parameter object as a parameter.
   def this(f: (View, View, View) => PartialFunction[Any,Any]) = this(Parameters(f))
 
   protected[config] def chain(site: View, tail: View, pname: Any) = p.chain(site, tail, pname)
