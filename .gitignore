@@ -1,6 +1,11 @@
 target/
 project/target
 *.swp
+*.anno
+*.fir
+*.v
+*.old
+*.bak
 *~
 .addons-dont-touch
 /lib/
