@@ -163,18 +163,8 @@ class WithRoccExample extends Config((site, here, up) => {
     r.copy(rocc =
       Seq(
         RoCCParams(
-          opcodes = OpcodeSet.custom0,
-          generator = (p: Parameters) => LazyModule(new AccumulatorExample()(p))),
-        RoCCParams(
-          opcodes = OpcodeSet.custom1,
-          generator = (p: Parameters) => LazyModule(new TranslatorExample()(p)),
-          nPTWPorts = 1),
-        RoCCParams(
-          opcodes = OpcodeSet.custom2,
-          generator = (p: Parameters) => LazyModule(new CharacterCountExample()(p))),
-        RoCCParams(
           opcodes = OpcodeSet.custom3,
-          generator = (p: Parameters) => LazyModule(new uselessAcc()(p)))
+          generator = (p: Parameters) => LazyModule(new bogus()(p)))
         ))
     }
 })
