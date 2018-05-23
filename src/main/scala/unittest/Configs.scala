@@ -10,7 +10,6 @@ import freechips.rocketchip.chip.{BaseConfig, BasePlatformConfig}
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.tilelink._
-import freechips.rocketchip.integrators.PicosManagerTest
 
 case object TestDurationMultiplier extends Field[Int]
 
@@ -46,6 +45,7 @@ class WithAMBAUnitTests extends Config((site, here, up) => {
     }
 })
 
+/*
 // Config-extending class that leverages Config's ability to generate
 // object from (View, View, View) => PartialFunction[Any, Any] lambda.
 class WithPicosManagerTest extends Config((site, here, up) => {
@@ -63,6 +63,7 @@ class WithPicosManagerTest extends Config((site, here, up) => {
       Seq(Module(new PicosManagerTest(txns=8*txns, timeout=timeout)))
     }
 })
+*/
 
 class WithTLSimpleUnitTests extends Config((site, here, up) => {
   case UnitTests => (q: Parameters) => {
@@ -112,4 +113,4 @@ class AMBAUnitTestConfig extends Config(new WithAMBAUnitTests ++ new WithTestDur
 class TLSimpleUnitTestConfig extends Config(new WithTLSimpleUnitTests ++ new WithTestDuration(10) ++ new BasePlatformConfig)
 class TLWidthUnitTestConfig extends Config(new WithTLWidthUnitTests ++ new WithTestDuration(10) ++ new BasePlatformConfig)
 class TLXbarUnitTestConfig extends Config(new WithTLXbarUnitTests ++ new WithTestDuration(10) ++ new BasePlatformConfig)
-class PicosManagerUnitTestConfig extends Config(new WithPicosManagerTest ++ new WithTestDuration(1) ++ new BasePlatformConfig)
+//class PicosManagerUnitTestConfig extends Config(new WithPicosManagerTest ++ new WithTestDuration(1) ++ new BasePlatformConfig)

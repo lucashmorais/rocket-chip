@@ -25,6 +25,8 @@ $(generated_dir)/$(long_name).behav_srams.v : $(generated_dir)/$(long_name).conf
 #--------------------------------------------------------------------
 # Run
 #--------------------------------------------------------------------
+# PRECIOUS means that if make is kill, the targets listed with this
+# property will not be deleted
 .PRECIOUS: $(output_dir)/%.vpd
 
 $(output_dir)/%.run: $(output_dir)/% $(simv)

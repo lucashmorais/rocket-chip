@@ -11,6 +11,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.util._
+import freechips.rocketchip.integrators._
 
 import scala.math.{min,max}
 
@@ -67,6 +68,9 @@ trait HasSystemNetworks extends HasPeripheryParameters {
     TLWidthWidget(socBusConfig.beatBytes)(
     TLAtomicAutomata(arithmetic = peripheryBusArithmetic)(
     socBus.node)))
+}
+
+trait HasNativeTaskSchedulingSupport extends HasPeripheryParameters {
 }
 
 /** This trait adds externally driven interrupts to the system. 

@@ -126,7 +126,14 @@ class RocketTile(val rocketParams: RocketTileParams, val hartid: Int)(implicit p
 
 class RocketTileBundle(outer: RocketTile) extends BaseTileBundle(outer)
     with HasExternalInterruptsBundle
-    with CanHaveScratchpadBundle
+    with CanHaveScratchpadBundle {
+
+  //TODO: MAKE IT CLEANER AND BETTER FITTING
+  //      TO THE REST OF THE PARAMETRIZABLE
+  //      IO INFRASTRUCTURE
+  val subQInterface = Decoupled(UInt(64.W))
+  val readyQInterface = Flipped(Decoupled(UInt(64.W)))
+}
 
 class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => new RocketTileBundle(outer))
     with HasExternalInterruptsModule
@@ -136,9 +143,19 @@ class RocketTileModule(outer: RocketTile) extends BaseTileModule(outer, () => ne
   require(outer.p(PAddrBits) >= outer.masterNode.edgesIn(0).bundle.addressBits,
     s"outer.p(PAddrBits) (${outer.p(PAddrBits)}) must be >= outer.masterNode.addressBits (${outer.masterNode.edgesIn(0).bundle.addressBits})")
 
+  // Builds the core
   val core = Module(p(BuildCore)(outer.p))
   decodeCoreInterrupts(core.io.interrupts) // Decode the interrupt vector
   core.io.hartid := io.hartid // Pass through the hartid
+
+  //TODO: REFACTOR!
+  val accsTalkingToPicos = outer.roccs.filter(_.talksToPicos)
+  require(accsTalkingToPicos.length == 1, "More than one LazyRoCC was found to be talking to Picos")
+  val picosMate = accsTalkingToPicos(0)
+
+  core.io.rocc.subQInterface <> picosMate.module.io.subQInterface
+  picosMate.module.io.readyQInterface <> core.io.rocc.readyQInterface
+
   outer.frontend.module.io.cpu <> core.io.imem
   outer.frontend.module.io.resetVector := io.resetVector
   outer.frontend.module.io.hartid := io.hartid
@@ -197,10 +214,20 @@ class SyncRocketTile(rtp: RocketTileParams, hartid: Int)(implicit p: Parameters)
       val asyncInterrupts  = asyncIntNode.bundleIn
       val periphInterrupts = periphIntNode.bundleIn
       val coreInterrupts   = coreIntNode.bundleIn
+
+      //TODO: MAKE IT CLEANER AND BETTER FITTING
+      //      TO THE REST OF THE PARAMETRIZABLE
+      //      IO INFRASTRUCTURE
+      val subQInterface = Decoupled(UInt(64.W))
+      val readyQInterface = Flipped(Decoupled(UInt(64.W)))
     }
     // signals that do not change:
     rocket.module.io.hartid := io.hartid
     rocket.module.io.resetVector := io.resetVector
+
+    //TODO: REFACTOR!
+    io.subQInterface <> rocket.module.io.subQInterface
+    rocket.module.io.readyQInterface <> io.readyQInterface
   }
 }
 

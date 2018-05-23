@@ -72,12 +72,20 @@ class RoCCCoreIO(implicit p: Parameters) extends CoreBundle()(p) {
   val interrupt = Bool(OUTPUT)
   val exception = Bool(INPUT)
 
+  //TODO: MAKE IT CLEANER AND BETTER FITTING
+  //      TO THE REST OF THE PARAMETRIZABLE
+  //      IO INFRASTRUCTURE
+  //TODO: REFACTOR!
+  val subQInterface = Decoupled(UInt(64.W))
+  val readyQInterface = Flipped(Decoupled(UInt(64.W)))
+
   override def cloneType = new RoCCCoreIO()(p).asInstanceOf[this.type]
 }
 
 /** Base classes for Diplomatic TL2 RoCC units **/
 abstract class LazyRoCC(implicit p: Parameters) extends LazyModule {
   val module: LazyRoCCModule
+  var talksToPicos: Boolean = false
 
   val atlNode: TLMixedNode = TLOutputNode()
   val tlNode: TLMixedNode = TLOutputNode()
@@ -119,6 +127,9 @@ trait HasLazyRoCCModule extends CanHaveSharedFPUModule
   with HasCoreParameters
   with HasTileLinkMasterPortModule {
   val outer: HasLazyRoCC
+
+  //This is the interface between the whole set of RoCC
+  //accelerators and the core that holds them
   val roccCore = Wire(new RoCCCoreIO()(outer.p))
 
   val buildRocc = outer.p(BuildRoCC)
@@ -258,12 +269,75 @@ class AccumulatorExampleModule(outer: AccumulatorExample, n: Int = 4)(implicit p
   io.mem.invalidate_lr := Bool(false)
 }
 
+class bogus(implicit p: Parameters) extends LazyRoCC {
+  talksToPicos = true
+  override lazy val module = new bogusModule(this)
+}
+
+class bogusModule(outer: bogus, n: Int = 4)(implicit p: Parameters) extends LazyRoCCModule(outer)
+  with HasCoreParameters {
+
+    //TODO: REMOVE!
+    io.subQInterface.valid := Bool(true)
+    io.readyQInterface.ready := Bool(true)
+
+    // This register captures the index of the target
+    // result register
+    val req_rd = Reg(io.resp.bits.rd)
+
+    val s_idle :: s_resp :: Nil = Enum(Bits(), 2)
+    val state = Reg(init = s_idle)
+
+    // Do not generate interrupts
+    io.interrupt := Bool(false)
+
+    // Let the registers reset to 0
+    val x = Reg(UInt(width = xLen), init = UInt(0))
+    val y = Reg(UInt(width = xLen), init = UInt(0))
+
+    // The module is always ready to receive data
+    io.cmd.ready  := (state === s_idle)
+    
+    // Tautology that says that we are 
+    // busy whenever we are not idle
+    io.busy       := (state =/= s_idle)
+
+    // Get input when the command is fired
+    when (io.cmd.fire()) {
+      req_rd            := io.cmd.bits.inst.rd
+      x                 := io.cmd.bits.rs1
+      y                 := io.cmd.bits.rs2
+      state             := s_resp
+    }
+
+    // When the response gets sent, move
+    // back to idle state
+    when (io.resp.fire()) { state := s_idle }
+
+    // The response is valid whenever we have reached
+    // the response state
+    io.resp.valid     := (state === s_resp)
+
+    // Select the register to send the response to
+    io.resp.bits.rd   := req_rd
+
+    // Write data to the response register
+    io.resp.bits.data := (x + y + UInt(2)) * UInt(7)
+
+    // We never issue memory requests
+    io.mem.req.valid  := Bool(false)
+}
+
 class uselessAcc(implicit p: Parameters) extends LazyRoCC {
   override lazy val module = new uselessAccModule(this)
 }
 
 class uselessAccModule(outer: uselessAcc, n: Int = 4)(implicit p: Parameters) extends LazyRoCCModule(outer)
   with HasCoreParameters {
+
+    //TODO: REMOVE!
+    io.subQInterface.valid := Bool(true)
+    io.readyQInterface.ready := Bool(true)
 
     // This register captures the index of the target
     // result register
