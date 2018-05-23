@@ -277,19 +277,19 @@ class bogus(implicit p: Parameters) extends LazyRoCC {
 class bogusModule(outer: bogus, n: Int = 4)(implicit p: Parameters) extends LazyRoCCModule(outer)
   with HasCoreParameters {
 
-    //TODO: REMOVE!
-    io.subQInterface.valid := Bool(true)
-    io.readyQInterface.ready := Bool(true)
-
     // This register captures the index of the target
     // result register
     val req_rd = Reg(io.resp.bits.rd)
 
-    val s_idle :: s_resp :: Nil = Enum(Bits(), 2)
+    val s_idle :: s_fetch_work :: s_submitting :: Nil = Enum(Bits(), 3)
     val state = Reg(init = s_idle)
 
     // Do not generate interrupts
     io.interrupt := Bool(false)
+
+    // This holds the value of the funct field
+    // from incoming RoCCInstruction's
+    val funct = Reg(UInt(width = 7), init = UInt(0))
 
     // Let the registers reset to 0
     val x = Reg(UInt(width = xLen), init = UInt(0))
@@ -305,24 +305,43 @@ class bogusModule(outer: bogus, n: Int = 4)(implicit p: Parameters) extends Lazy
     // Get input when the command is fired
     when (io.cmd.fire()) {
       req_rd            := io.cmd.bits.inst.rd
+      funct             := io.cmd.bits.inst.funct
+      
+      // The following lines obtain the values of
+      // the registers indexed by io.cmd.bits.inst.rs1
+      // and io.cmd.bits.inst.rs2
       x                 := io.cmd.bits.rs1
       y                 := io.cmd.bits.rs2
-      state             := s_resp
+
+      when (funct === UInt(1)) {
+        state := s_submitting
+      } .elsewhen(funct === UInt(2)) {
+        state := s_fetch_work
+      }
     }
 
-    // When the response gets sent, move
-    // back to idle state
-    when (io.resp.fire()) { state := s_idle }
+    // Implements submission to SubQ
+    io.subQInterface.bits  := x
+    io.subQInterface.valid := (state === s_submitting)
+    when (io.subQInterface.fire()) { state := s_idle }
 
     // The response is valid whenever we have reached
     // the response state
-    io.resp.valid     := (state === s_resp)
+    io.resp.valid     := (state === s_fetch_work && io.readyQInterface.valid)
+
+    // We are only ready to receive data from the readyQ
+    // when on s_fetch_work state
+    io.readyQInterface.ready := (state === s_fetch_work && io.resp.ready)
 
     // Select the register to send the response to
     io.resp.bits.rd   := req_rd
 
     // Write data to the response register
-    io.resp.bits.data := (x + y + UInt(2)) * UInt(7)
+    io.resp.bits.data := io.readyQInterface.bits
+    
+    // When the response gets sent, move
+    // back to idle state
+    when (io.resp.fire()) { state := s_idle }
 
     // We never issue memory requests
     io.mem.req.valid  := Bool(false)
@@ -550,8 +569,6 @@ class RoccCommandRouter(opcodes: Seq[OpcodeSet])(implicit p: Parameters)
 
     // Commands coming out for the RoCC accelerators matching the custom opcode
     val out = Vec(opcodes.size, Decoupled(new RoCCCommand))
-
-
     val busy = Bool(OUTPUT)
   }
 
